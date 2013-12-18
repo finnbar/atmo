@@ -8,6 +8,7 @@ f = love.graphics.newFont("OpenSans-Regular.ttf",100)
 e = 1 --where to place new things
 m = false
 c = {{"Na","Cl"},{"O","C","O"}} --combinations!
+i = {} --combination highlighting
 
 function love.load()
 	love.graphics.setFont(f)
@@ -21,6 +22,7 @@ function love.load()
 end
 
 function love.draw()
+	love.graphics.setColor(255,255,255)
 	love.graphics.setNewFont(12)
 	love.graphics.print("q to expand",2,0)
 	love.graphics.print("w to unexpand",2,15)
@@ -30,14 +32,21 @@ function love.draw()
 	love.graphics.setFont(f)
 	for x=1,w,1 do
 		for y=1,h,1 do
+			love.graphics.setColor(255,255,255)
 			if x==p[1] and y==p[2] then love.graphics.rectangle("line",x*s,y*s,s,s) end
 			if t[x][y]~=0 then
 				if a[t[x][y]]~=nil then
+					love.graphics.setColor(255,255,255)
 					love.graphics.print(a[t[x][y]],x*s,y*s,0,s/150,s/150)
+					if inChosenGroup(i,x,y) then
+						love.graphics.setColor(255,0,0)
+						love.graphics.rectangle("line",x*s,y*s,s,s)
+					end
 				end
 			end
 		end
 	end
+	i = {}
 end
 
 function love.keypressed(key)
@@ -153,36 +162,66 @@ function love.update(dt)
 end
 
 function combiFinder()
+	local e = false
 	for x=1,w,1 do
 		for y=1,h,1 do
 			if t[x][y]~=0 and t[x][y]~=nil then
-				for u in pairs(c) do
-					local x = x
-					local y = y
-					if c[u][1]==a[t[x][y]] then
-						for d=2,#c[u],1 do
-							local o = false
-							for b=-1,1,1 do
-								for n=-1,1,1 do
-									if (b==1 and n==0) or (b==0 and n~=0) or (b==-1 and n==0) then
-										if (x+b)>0 and (x+b)<=w and (y+n)>0 and (x+b)<=h then
-											if t[x+b][y+n]~=nil and t[x+b][y+n]~=0 then
-												if c[u][d]==a[t[x+b][y+n]] then
-													o=true
-													x=x+b
-													y=y+n
-													break
+				if not inChosenGroup(i,x,y) then
+					for u in pairs(c) do
+						local p = {}
+						local x = x
+						local y = y
+						if c[u][1]==a[t[x][y]] and not inChosenGroup(i,x,y) then
+							table.insert(p,{x,y,u})
+							for d=2,#c[u],1 do
+								local o = false
+								for b=-1,1,1 do
+									for n=-1,1,1 do
+										if (b==1 and n==0) or (b==0 and n~=0) or (b==-1 and n==0) then
+											if (x+b)>0 and (x+b)<=w and (y+n)>0 and (x+b)<=h then
+												if t[x+b][y+n]~=nil and t[x+b][y+n]~=0 then
+													if c[u][d]==a[t[x+b][y+n]] then
+														o=true
+														x=x+b
+														y=y+n
+														table.insert(p,{x,y,u})
+														break
+													end
 												end
 											end
 										end
 									end
+									if o then break end
 								end
-								if o then break end
-							end
-							if not o then break end
-							if d==#c[u] then
-								for d=1,#c[u],1 do
-									print(c[u][d])
+								if not o then break end
+								if d==#c[u] then
+									e=true
+									local a = {}
+									for d=1,#c[u],1 do
+										if p[d]~=nil then
+											local q = true
+											for v in pairs(a) do
+												if p[d][3]==a[v][3] and p[d][2]==a[v][2] then
+													q=false
+												end
+											end
+											if not q then
+												e=false
+												break
+											end
+										end
+									end
+									if e then
+										for d=1,#c[u],1 do
+											if p[d]~= nil then
+												if not inChosenGroup(i,p[d][1],p[d][2]) then
+													table.insert(i,{p[d][1],p[d][2],p[d][3]})
+													print(p[d][1],p[d][2],p[d][3])
+												end
+											end
+											print(c[u][d])
+										end
+									end
 								end
 							end
 						end
@@ -191,5 +230,14 @@ function combiFinder()
 			end
 		end
 	end
-	print("\n")
+	if e then print("\n") end
+end
+
+function inChosenGroup(g,x,y)
+	for p,t in pairs(g) do
+		if t[1]==x and t[2]==y then
+			return true
+		end
+	end
+	return false
 end
