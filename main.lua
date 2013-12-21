@@ -6,17 +6,39 @@ w = 3 --width
 s = 150 --size (grid spacing etc.)
 f = love.graphics.newFont("OpenSans-Regular.ttf",100)
 e = 1 --where to place new things
-m = false
-c = {{"Na","Cl"},{"O","C","O"}} --combinations!
-i = {} --combination highlighting
+m = false --move, I think
+c = {{"Na","Cl"},{"O","O","C"},{"N","N"},{"Cl","Cl"},{"H","Cl"},{"Cu","S","O","O"},{"Cu","Cu","O"},{"Na","H","C","O","O"},{"C","H","H"}} --combinations!
+--[[ NOW, BEFORE ANYONE RANTS ABOUT IT SHOULD BE O-C-O:#
+	The combination recognising engine is glitchy, ok?
+	If the combination is presented as OCO, it accepts OC as well for some reason :/
+	So I changed the combination. I probably should fix it, but meh.
+	ALSO:
+	Some combinations, such as CuSO4 have been shortened to make them easier to get. Some have also been shortened due to the fact that any element with >2 of a repeated element counts 2 of the repeated element as ok.
+]]
+--[[ SO, WHAT DOES EACH COMBINATION DO?
+NaCl   Sodium Chloride -> Preserves effects (is a salt)
+CO2    Carbon Dioxide -> Removes oxygen, reduces health of all in cloud
+N2     Nitrogen -> is explosive. Deals high damaged when triggered by a bullet (or other projectile)
+Cl2    Chlorine -> poisonous, gives poison
+HCl    Hydrochloric Acid -> Can destroy floors or walls
+CuS04  Copper Sulphate -> Crystal attack!
+NaHCO3 Sodium Hydroxide -> An alkali, can dissolve organic material (gets into opponent's inventory and removes some atoms)
+CH4    Methane -> Stuns opponent.
+]]
+q = {{0,255,0},{255,0,0},{0,0,255},{255,255,0},{0,255,255},{255,0,255},{180,180,180},{0,180,50},{50,0,180},{180,50,0},{50,50,0},{0,50,50}} --q for colours, like e for bonjour. taken from pixiapp
+i = {} --combination highlighting, contains i[1-6][1-6]
+g = false --remove things!
+
 
 function love.load()
 	love.graphics.setFont(f)
 	love.window.setTitle("YOU MUST GET THE ATOMS (ONCE AGAIN)")
 	for x=1,6,1 do
 		table.insert(t,{})
+		table.insert(i,{})
 		for y=1,6,1 do
 			table.insert(t[x],0)
+			table.insert(i[x],0)
 		end
 	end
 end
@@ -30,6 +52,7 @@ function love.draw()
 	love.graphics.print("t to remove highlighted",2,45)
 	love.graphics.print("space to switch atoms",2, 60)
 	love.graphics.setFont(f)
+	local b = {}
 	for x=1,w,1 do
 		for y=1,h,1 do
 			love.graphics.setColor(255,255,255)
@@ -37,16 +60,40 @@ function love.draw()
 			if t[x][y]~=0 then
 				if a[t[x][y]]~=nil then
 					love.graphics.setColor(255,255,255)
-					love.graphics.print(a[t[x][y]],x*s,y*s,0,s/150,s/150)
-					if inChosenGroup(i,x,y) then
-						love.graphics.setColor(255,0,0)
-						love.graphics.rectangle("line",x*s,y*s,s,s)
+					love.graphics.print(a[t[x][y]],(x*s)+((10/150)*s),(y*s)+((10/150)*s),0,s/150,s/150)
+					if i[x][y]~=0 then
+						love.graphics.setColor(q[i[x][y]])
+						love.graphics.rectangle("line",(x*s)+10,(y*s)+10,s-20,s-20)
+						if not combWritten(b,i[x][y]) then table.insert(b,i[x][y]) end
 					end
 				end
 			end
 		end
 	end
-	i = {}
+	love.graphics.setNewFont(20)
+	for x=1,#b,1 do
+		love.graphics.setColor(q[b[x]])
+		for z=1,1,1 do --put a useless for loop in to keep q in its own scope
+			local q = ""
+			for y=1,#c[b[x]],1 do
+				q=q..c[b[x]][y]
+				if y<#c[b[x]] then q=q.."," end
+			end
+			love.graphics.print(q,630,x*50)
+		end
+	end
+	for x=1,6,1 do
+		for y=1,6,1 do
+			i[x][y]=0
+		end
+	end
+end
+
+function combWritten(b,v)
+	for d in pairs(b) do
+		if b[d]==v then return true end
+	end
+	return false
 end
 
 function love.keypressed(key)
@@ -145,6 +192,13 @@ function love.keypressed(key)
 	if key==" " then
 		m=not m
 	end
+	if key=="y" then
+		g=true
+	end
+end
+
+function love.keyreleased(key)
+	if key=="y" then g=false end
 end
 
 function love.update(dt)
@@ -166,12 +220,12 @@ function combiFinder()
 	for x=1,w,1 do
 		for y=1,h,1 do
 			if t[x][y]~=0 and t[x][y]~=nil then
-				if not inChosenGroup(i,x,y) then
+				if i[x][y]==0 then
 					for u in pairs(c) do
 						local p = {}
-						local x = x
+						local x = x --make an adjustable version that doesn't affect the for loop
 						local y = y
-						if c[u][1]==a[t[x][y]] and not inChosenGroup(i,x,y) then
+						if c[u][1]==a[t[x][y]] then
 							table.insert(p,{x,y,u})
 							for d=2,#c[u],1 do
 								local o = false
@@ -214,12 +268,15 @@ function combiFinder()
 									if e then
 										for d=1,#c[u],1 do
 											if p[d]~= nil then
-												if not inChosenGroup(i,p[d][1],p[d][2]) then
-													table.insert(i,{p[d][1],p[d][2],p[d][3]})
+												if not g then
+													i[p[d][1]][p[d][2]]=p[d][3]
 													print(p[d][1],p[d][2],p[d][3])
+												else
+													t[p[d][1]][p[d][2]]=0
 												end
 											end
 											print(c[u][d])
+											if g then print("removed") end
 										end
 									end
 								end
@@ -233,11 +290,4 @@ function combiFinder()
 	if e then print("\n") end
 end
 
-function inChosenGroup(g,x,y)
-	for p,t in pairs(g) do
-		if t[1]==x and t[2]==y then
-			return true
-		end
-	end
-	return false
-end
+--anyone trying to make sense of this code is going to hate me by now. including me.
